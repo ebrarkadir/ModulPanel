@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using ModulPanel.Entities;
+using ModulPanel.Enums;
 
 namespace ModulPanel.Data
 {
@@ -10,13 +11,21 @@ namespace ModulPanel.Data
         {
         }
 
-        // 🔹 Veritabanı tabloları
         public DbSet<User> Users { get; set; }
         public DbSet<UserPermission> UserPermissions { get; set; }
+        public DbSet<Log> Logs { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+
+            // 🔹 UserRole enum'unu string olarak sakla
+            modelBuilder.Entity<User>()
+                .Property(u => u.Role)
+                .HasConversion(
+                    v => v.ToString(),
+                    v => (UserRole)Enum.Parse(typeof(UserRole), v)
+                );
 
             // 🔹 User <-> UserPermission (1 - N ilişkisi)
             modelBuilder.Entity<UserPermission>()
@@ -25,12 +34,10 @@ namespace ModulPanel.Data
                 .HasForeignKey(up => up.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
 
-            // 🔹 Unique Username (her kullanıcı adı tekil olmalı)
+            // 🔹 Username benzersiz olmalı
             modelBuilder.Entity<User>()
                 .HasIndex(u => u.Username)
                 .IsUnique();
-
-
         }
     }
 }

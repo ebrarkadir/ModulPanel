@@ -11,16 +11,17 @@ namespace ModulPanel.Services
     public class UserService
     {
         private readonly AppDbContext _context;
+        private readonly LogService _logService;
 
-        public UserService(AppDbContext context)
+        public UserService(AppDbContext context, LogService logService)
         {
             _context = context;
+            _logService = logService;
         }
 
-        // 🔹 1. Tüm kullanıcıları getir
         public async Task<List<UserResponseDto>> GetAllAsync()
         {
-            return await _context.Users
+            var users = await _context.Users
                 .AsNoTracking()
                 .Select(u => new UserResponseDto
                 {
@@ -31,9 +32,11 @@ namespace ModulPanel.Services
                     CreatedAt = u.CreatedAt
                 })
                 .ToListAsync();
+
+            await _logService.AddAsync(null, "GET_USERS", "Kullanıcı listesi görüntülendi.", "User");
+            return users;
         }
 
-        // 🔹 2. Yeni kullanıcı oluştur
         public async Task<UserResponseDto?> CreateAsync(UserCreateDto dto)
         {
             if (await _context.Users.AnyAsync(u => u.Username == dto.Username))
@@ -51,6 +54,8 @@ namespace ModulPanel.Services
             _context.Users.Add(user);
             await _context.SaveChangesAsync();
 
+            await _logService.AddAsync(null, "CREATE_USER", $"Yeni kullanıcı oluşturuldu: {user.Username} (Rol: {user.Role})", "User");
+
             return new UserResponseDto
             {
                 Id = user.Id,
@@ -61,11 +66,14 @@ namespace ModulPanel.Services
             };
         }
 
-        // 🔹 3. Kullanıcıyı güncelle
         public async Task<bool> UpdateAsync(int id, UserUpdateDto dto)
         {
             var user = await _context.Users.FindAsync(id);
-            if (user == null) return false;
+            if (user == null)
+            {
+                await _logService.AddAsync(null, "UPDATE_USER_FAIL", $"Kullanıcı bulunamadı (ID: {id})", "User");
+                return false;
+            }
 
             if (!string.IsNullOrWhiteSpace(dto.Username))
                 user.Username = dto.Username;
@@ -76,21 +84,26 @@ namespace ModulPanel.Services
             user.Role = dto.Role;
             await _context.SaveChangesAsync();
 
+            await _logService.AddAsync(null, "UPDATE_USER", $"Kullanıcı güncellendi (ID: {id}, Yeni Username: {user.Username})", "User");
             return true;
         }
 
-        // 🔹 4. Kullanıcıyı sil
         public async Task<bool> DeleteAsync(int id)
         {
             var user = await _context.Users.FindAsync(id);
-            if (user == null) return false;
+            if (user == null)
+            {
+                await _logService.AddAsync(null, "DELETE_USER_FAIL", $"Kullanıcı bulunamadı (ID: {id})", "User");
+                return false;
+            }
 
             _context.Users.Remove(user);
             await _context.SaveChangesAsync();
+
+            await _logService.AddAsync(null, "DELETE_USER", $"Kullanıcı silindi (ID: {id}, Username: {user.Username})", "User");
             return true;
         }
 
-        // 🔹 Şifre hash fonksiyonu
         private string HashPassword(string password)
         {
             using var sha = SHA256.Create();
