@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>QoS JSON → Tablo (Application_ID_List.json destekli)</title>
+  <style>
+    :root { --bg:#f4f6fb; --panel:#fff; --muted:#5d6a85; --text:#1d1d1d; --accent:#2563eb; --accent-2:#059669; --warn:#f59e0b; --bad:#dc2626; --border:#e2e8f0; --chip:#f1f5f9; }
+    [data-theme="dark"]{ --bg:#0e1530; --panel:#111a3a; --muted:#9bb0e3; --text:#eef3ff; --accent:#2f61ff; --accent-2:#21d4a3; --warn:#ffbe55; --bad:#ff6b6b; --border:#243160; --chip:#192657; }
+    html,body{height:100%}
+    body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,Helvetica,Arial;background:var(--bg);color:var(--text)}
+    .container{max-width:1280px;margin:24px auto;padding:0 16px}
+    .header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+    .title{font-size:1.5rem;font-weight:700;letter-spacing:.3px}
+    .panel{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px;box-shadow:0 4px 12px rgba(0,0,0,.05)}
+    textarea{width:100%;min-height:180px;resize:vertical;box-sizing:border-box;background:var(--chip);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:12px;line-height:1.45;font-family:ui-monospace,monospace;font-size:13px}
+    .toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px;justify-content:space-between}
+    .btn{cursor:pointer;border:1px solid var(--border);background:var(--accent);color:#fff;padding:10px 12px;border-radius:8px;font-weight:600;font-size:13px;transition:.15s}
+    .btn:hover{opacity:.9}.btn.ghost{background:var(--panel);color:var(--text)}.btn.warn{background:var(--warn);color:#111;border-color:transparent}
+    .status{margin-top:10px;font-size:13px;text-align:center}.ok{color:var(--accent-2)}.warn-txt{color:var(--warn)}.bad{color:var(--bad)}
+    .summary{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin:12px 0}
+    .chip{background:var(--chip);border:1px solid var(--border);padding:6px 10px;border-radius:999px;font-size:12px;color:var(--text)}
+    .table-wrap{margin-top:12px;border:1px solid var(--border);border-radius:8px;overflow:auto;background:var(--panel)}
+    table{width:100%;border-collapse:collapse;font-size:13px}
+    thead tr{background:var(--chip)}
+    th,td{padding:8px;border-bottom:1px solid var(--border);text-align:left;vertical-align:top}
+    tbody tr:hover{background:rgba(0,0,0,.03)}
+    .grid{display:grid;grid-template-columns:1fr;gap:16px}
+    @media(min-width:1000px){.grid{grid-template-columns:1fr 1fr}}
+    .search{padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--panel);color:var(--text);min-width:220px}
+    .right{margin-left:auto;display:flex;gap:8px;align-items:center}
+    .theme-btn{border:1px solid var(--border);background:var(--panel);color:var(--text);padding:8px 10px;border-radius:8px;font-weight:600;cursor:pointer}
+    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}.dim{color:var(--muted);font-size:12px}.badge{display:inline-block;padding:2px 6px;border-radius:6px;border:1px solid var(--border);background:var(--chip)}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="title">QoS JSON → Tablo (Application_ID_List.json destekli)</div>
+      <button id="btn-theme" class="theme-btn" title="Tema değiştir">Koyu Tema</button>
+    </div>
+
+    <div class="grid">
+      <div class="panel">
+        <div style="display:flex;align-items:center;gap:8px;justify-content:space-between;">
+          <div style="font-weight:700">JSON Girişi</div>
+          <div class="dim">Ctrl/Cmd + Enter → Dönüştür</div>
+        </div>
+        <textarea id="input" placeholder='{"site-name":"...","interface":[{"name":"v-e048-h","class":[...],"bandwidth":"60mbit"}]}'></textarea>
+        <div class="toolbar">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button id="btn-parse" class="btn">Dönüştür</button>
+            <button id="btn-sample" class="btn ghost">Örnek Veriyi Yükle</button>
+            <button id="btn-clear" class="btn ghost">Metni Temizle</button>
+          </div>
+          <div class="right">
+            <button id="btn-export-csv" class="btn ghost">CSV Dışa Aktar</button>
+            <button id="btn-export-json" class="btn ghost">JSON Dışa Aktar</button>
+            <button id="btn-print" class="btn ghost">Yazdır / PDF</button>
+          </div>
+        </div>
+        <div id="status" class="status"></div>
+      </div>
+
+      <div class="panel">
+        <div style="display:flex;align-items:center;gap:8px;justify-content:space-between;">
+          <div style="font-weight:700">R&S Uygulama Kataloğu</div>
+          <span class="dim">Aynı dizindeki <b>Application_ID_List.json</b> otomatik taranır.</span>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px;">
+          <input type="file" id="catalogFile" accept=".json,.csv" />
+          <button id="btn-load-catalog" class="btn">Dosyadan Yükle</button>
+          <button id="btn-reload-local" class="btn ghost">Yerelden Tara</button>
+          <button id="btn-clear-catalog" class="btn ghost">Katalogu Temizle</button>
+        </div>
+        <div class="status" id="catalogStatus"></div>
+        <details style="margin-top:8px;">
+          <summary class="mono">Beklenen formatlar</summary>
+          <div class="dim" style="margin-top:6px;">
+            <div><b>R&S dosyası</b>: <span class="badge">Application_ID_List.json</span> (örnek şema: <span class="mono">{ application: [ { id, name, long_name, main_tag:{id,text}, ... } ] }</span>)</div>
+            <div><b>Alternatif JSON</b>: { "app": { "28": "App Adı", ... }, "cat": { "2065": "Social", ... } }</div>
+            <div><b>CSV</b>: Başlıklar <span class="badge">type</span>, <span class="badge">id</span>, <span class="badge">name</span> (ör: <i>app,28,YouTube</i> veya <i>cat,2065,Social</i>)</div>
+          </div>
+        </details>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:16px;">
+      <div class="toolbar" style="justify-content:space-between;">
+        <input id="search" class="search" type="search" placeholder="Tabloda ara..." />
+        <div class="right"><span class="dim" id="summaryRight"></span></div>
+      </div>
+      <div class="summary" id="summary"></div>
+      <div class="table-wrap" id="tableWrap">
+        <table id="table">
+          <thead id="thead"></thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+      <div class="status" style="text-align:center;margin-top:12px;">Toplam satır: <span id="rowCount">0</span></div>
+    </div>
+  </div>
+
+<script>
+const $ = s => document.querySelector(s);
+let parsedRows = [], lastData = null;
+
+// Tema
+(function(){
+  const btn = $('#btn-theme');
+  const saved = localStorage.getItem('theme') || 'light';
+  document.body.setAttribute('data-theme', saved);
+  const setLabel = () => btn.textContent = (document.body.getAttribute('data-theme')==='dark' ? 'Açık Tema' : 'Koyu Tema');
+  setLabel();
+  btn.addEventListener('click', ()=>{ const cur=document.body.getAttribute('data-theme')==='dark'?'light':'dark'; document.body.setAttribute('data-theme',cur); localStorage.setItem('theme',cur); setLabel(); });
+})();
+
+// Katalog depolama
+const CATALOG_KEY = 'qos_app_catalog_v5';
+function getCatalog(){ try{ return JSON.parse(localStorage.getItem(CATALOG_KEY)||'{}'); }catch(e){ return {}; } }
+function setCatalog(obj){ localStorage.setItem(CATALOG_KEY, JSON.stringify(obj)); }
+function clearCatalog(){ localStorage.removeItem(CATALOG_KEY); }
+
+// Birleştirme (app, cat ve app→category eşlemesi)
+function mergeCatalog(base, extra){
+  base.app = Object.assign({}, base.app||{}, extra.app||{});
+  base.cat = Object.assign({}, base.cat||{}, extra.cat||{});
+  base.app2catText = Object.assign({}, base.app2catText||{}, extra.app2catText||{});
+  base.app2catId = Object.assign({}, base.app2catId||{}, extra.app2catId||{});
+  return base;
+}
+
+function showCatalogStatus(){
+  const cat = getCatalog();
+  const appCount = Object.keys(cat.app||{}).length;
+  const catCount = Object.keys(cat.cat||{}).length;
+  $('#catalogStatus').innerHTML = '<span class="ok">Katalog yüklü.</span> <span class="dim">App: '+appCount+', Cat: '+catCount+'</span>';
+  $('#summaryRight').textContent = 'Katalog: App '+appCount+' / Cat '+catCount;
+}
+function noCatalogStatus(){ $('#catalogStatus').innerHTML = '<span class="warn-txt">Katalog yüklü değil.</span> <span class="dim">Application_ID_List.json otomatik taranır; gerekirse dosyadan yükleyin.</span>'; $('#summaryRight').textContent = 'Katalog yok'; }
+
+// Yardımcılar
+function humanJoin(arr){ return arr && arr.length ? arr.join(', ') : ''; }
+function uniq(arr){ return Array.from(new Set((arr||[]).filter(Boolean))); }
+function parseMbit(s){ if(!s) return ''; const m=String(s).trim().match(/([0-9]+(?:\.[0-9]+)?)\s*mbit/i); return m?parseFloat(m[1]):''; }
+function parsePercent(s){ if(!s) return ''; const m=String(s).trim().match(/([0-9]+(?:\.[0-9]+)?)%/); return m?parseFloat(m[1]):''; }
+function computeAllocMbit(clsPct, ifBwMbit){ const p=parsePercent(clsPct); if(p!=='' && ifBwMbit!=='') return ((p/100)*ifBwMbit).toFixed(2); return ''; }
+
+// R&S Application_ID_List.json → dahili katalog
+function catalogFromRSAppList(json){
+  const out = { app:{}, cat:{}, app2catText:{}, app2catId:{} };
+  const arr = Array.isArray(json && json.application) ? json.application : (json && json.application ? Object.values(json.application) : []);
+  arr.forEach(function(it){
+    if(!it) return;
+    const id = String(it.id==null? '': it.id).trim(); if(!id) return;
+    const long = (it.long_name || it.name || '').toString().trim();
+    if(long) out.app[id] = long;
+    const mt = it.main_tag || {};
+    const cid = mt.id!=null ? String(mt.id) : '';
+    const ctext = (mt.text || '').toString().trim();
+    if(cid){ out.cat[cid] = ctext || out.cat[cid] || ''; out.app2catId[id] = cid; }
+    if(ctext){ out.app2catText[id] = ctext; }
+  });
+  return out;
+}
+
+async function tryLoadLocalRSFile(){
+  try{
+    const resp = await fetch('Application_ID_List.json', { cache:'no-store' });
+    if(!resp.ok) throw new Error('HTTP '+resp.status);
+    const json = await resp.json();
+    const built = catalogFromRSAppList(json);
+    const merged = mergeCatalog(getCatalog(), built);
+    setCatalog(merged);
+    showCatalogStatus();
+    if(lastData){ parsedRows = transform(lastData); renderTable(); }
+    $('#catalogStatus').innerHTML += '<div class="dim">Yerelden yüklendi: Application_ID_List.json</div>';
+  }catch(e){ noCatalogStatus(); }
+}
+
+// Açılışta otomatik tara
+tryLoadLocalRSFile();
+
+// CSV/JSON manuel yükleme (alternatif)
+function parseCSV(text){
+  const lines = text.split(/\r?\n/).filter(Boolean); if(lines.length===0) return {app:{},cat:{}};
+  const head = lines[0].split(',').map(s=>s.trim().toLowerCase());
+  const hasType = head.includes('type'); const idxType=head.indexOf('type'); const idxId=head.indexOf('id'); const idxName=head.indexOf('name');
+  const out={app:{},cat:{}};
+  for(let i=1;i<lines.length;i++){
+    const cells = lines[i].split(','); if(!cells.length) continue;
+    const type = hasType ? (cells[idxType]||'app').trim().toLowerCase() : 'app';
+    const id = (cells[idxId]||'').trim(); const name=(cells[idxName]||cells[cells.length-1]||'').trim();
+    if(!id||!name) continue; if(type==='cat') out.cat[id]=name; else out.app[id]=name;
+  }
+  return out;
+}
+
+$('#btn-load-catalog').addEventListener('click', ()=>{
+  const f = $('#catalogFile').files[0];
+  if(!f){ $('#catalogStatus').innerHTML = '<span class="warn-txt">Dosya seçilmedi. Alternatif: Yerelden Tara.</span>'; return; }
+  const reader = new FileReader();
+  reader.onload = e => {
+    try{
+      let extra={};
+      if(f.name.toLowerCase().endsWith('.json')){
+        const j = JSON.parse(e.target.result);
+        extra = j && j.application ? catalogFromRSAppList(j) : j; // R&S şeması ise dönüştür
+      } else if(f.name.toLowerCase().endsWith('.csv')){
+        extra = parseCSV(e.target.result);
+      }
+      const merged = mergeCatalog(getCatalog(), extra);
+      setCatalog(merged); showCatalogStatus();
+      if(lastData){ parsedRows = transform(lastData); renderTable(); }
+    }catch(err){ $('#catalogStatus').innerHTML = '<span class="bad">Katalog yükleme hatası:</span> '+err.message; }
+  };
+  reader.readAsText(f);
+});
+$('#btn-reload-local').addEventListener('click', tryLoadLocalRSFile);
+$('#btn-clear-catalog').addEventListener('click', ()=>{ clearCatalog(); noCatalogStatus(); if(lastData){ parsedRows = transform(lastData); renderTable(); } });
+
+// Dönüştürme sütunları
+const COLUMNS = [
+  {key:'site',label:'Site'},
+  {key:'interface',label:'Interface'},
+  {key:'policy',label:'Policy'},
+  {key:'iface_bw',label:'IF BW (mbit)'},
+  {key:'class_name',label:'Class'},
+  {key:'priority',label:'Priority'},
+  {key:'pct',label:'BW %'},
+  {key:'alloc',label:'Tahsis (mbit)'},
+  {key:'burst',label:'Burst'},
+  {key:'ceiling',label:'Ceiling'},
+  {key:'queue_type',label:'Queue'},
+  {key:'is_default',label:'Default'},
+  {key:'target',label:'Target'},
+  {key:'codelQuantum',label:'CodelQ'},
+  {key:'queue_limit',label:'QueueLimit'},
+  {key:'interval',label:'Interval'},
+  {key:'match_src',label:'Match Src'},
+  {key:'match_dst',label:'Match Dst'},
+  {key:'app_ids',label:'App IDs'},
+  {key:'app_names',label:'App Names'},
+  {key:'app_unknown',label:'App IDs (Unknown)'},
+  {key:'cat_ids',label:'Cat IDs'},
+  {key:'cat_names',label:'Category Names'}
+];
+
+function transform(data){
+  const out=[]; const site=data['site-name']??''; const interfaces=Array.isArray(data.interface)?data.interface:[];
+  const catalog = Object.assign({app:{},cat:{},app2catText:{},app2catId:{}}, getCatalog());
+
+  interfaces.forEach(ifc=>{
+    const ifName=ifc?.name??''; const policy=ifc?.['policy-name']??''; const ifBwMbit=parseMbit(ifc?.bandwidth??''); const classes=Array.isArray(ifc?.class)?ifc.class:[];
+    classes.forEach(cls=>{
+      const matches=Array.isArray(cls?.match)?cls.match:[]; let srcAll=[], dstAll=[], appAll=[], catAll=[];
+      matches.forEach(m=>{ const ipset=m?.ipset||{}; srcAll=srcAll.concat(ipset?.src||[]); dstAll=dstAll.concat(ipset?.dst||[]); appAll=appAll.concat(ipset?.app||[]); catAll=catAll.concat(ipset?.cat||[]); });
+      srcAll=uniq(srcAll); dstAll=uniq(dstAll); appAll=uniq(appAll); catAll=uniq(catAll);
+
+      const appNames = appAll.map(id=>catalog.app[String(id)]).filter(Boolean);
+      const appUnknown = appAll.filter(id=>!catalog.app[String(id)]);
+
+      const catByExplicit = catAll.map(id=>catalog.cat[String(id)]).filter(Boolean);
+      const catByApp = uniq(appAll.map(id=>catalog.app2catText[String(id)]).filter(Boolean));
+      const catNames = uniq([...(catByExplicit||[]), ...(catByApp||[])]);
+
+      const pct=cls?.bandwidth??''; const alloc=computeAllocMbit(pct, ifBwMbit);
+      out.push({
+        site,
+        interface: ifName,
+        policy,
+        iface_bw: ifc?.bandwidth??'',
+        class_name: cls?.name??'',
+        priority: cls?.priority??'',
+        pct,
+        alloc,
+        burst: cls?.burst??'',
+        ceiling: cls?.ceiling??'',
+        queue_type: cls?.['queue-type']??'',
+        is_default: cls?.['is-default']?'✔':'',
+        target: cls?.target??'',
+        codelQuantum: cls?.codelQuantum??'',
+        queue_limit: cls?.['queue-limit']??'',
+        interval: cls?.interval??'',
+        match_src: humanJoin(srcAll),
+        match_dst: humanJoin(dstAll),
+        app_ids: humanJoin(appAll),
+        app_names: humanJoin(appNames),
+        app_unknown: humanJoin(appUnknown),
+        cat_ids: humanJoin(catAll),
+        cat_names: humanJoin(catNames),
+      });
+    });
+  });
+  return out;
+}
+
+function renderTable(){
+  $('#thead').innerHTML = '<tr>' + COLUMNS.map(c=>`<th>${c.label}</th>`).join('') + '</tr>';
+  const q = $('#search').value.trim().toLowerCase();
+  const rows = parsedRows.filter(r=>!q || Object.values(r).some(v=>v && String(v).toLowerCase().includes(q)));
+  $('#tbody').innerHTML = rows.map(r=>'<tr>'+COLUMNS.map(c=>`<td>${r[c.key]??''}</td>`).join('')+'</tr>').join('');
+  $('#rowCount').textContent = rows.length;
+  const withApp = rows.filter(r=> (r.app_ids||'').length>0 ).length;
+  const unknownCount = rows.reduce((acc,r)=> acc + (r.app_unknown? r.app_unknown.split(',').filter(x=>x.trim()).length:0), 0);
+  $('#summary').innerHTML = '<span class="chip">Sınıf sayısı: '+rows.length+'</span>'+
+    '<span class="chip">App filter içeren sınıf: '+withApp+'</span>'+
+    '<span class="chip">Bilinmeyen App ID: '+unknownCount+'</span>';
+}
+
+function doParse(){
+  try{ const data=JSON.parse($('#input').value); lastData=data; parsedRows=transform(data); renderTable(); $('#status').innerHTML='<span class="ok">Dönüşüm başarılı.</span>'; }
+  catch(e){ $('#status').innerHTML='<span class="bad">JSON hatası:</span> '+e.message; }
+}
+
+$('#btn-parse').addEventListener('click', doParse);
+$('#btn-sample').addEventListener('click', ()=>{
+  const sample={
+    "site-name":"797255d5-aaf7-4689-88bd-782af1173577",
+    "interface":[{"name":"v-e048-h","bandwidth":"60mbit","policy-name":"CPE2-QoS-INGRESS","class":[
+      {"name":"2","priority":1,"bandwidth":"35%","burst":"4096000","match":[{"ipset":{"dst":["48.0.0.0/24","81.81.1.0/24","172.25.3.228/30"],"src":null,"app":["28","223","771","1020"],"cat":["28","223","771","1020"],"srcPortList":null},"name":"1"},{"ipset":{"dst":["48.0.0.0/24"],"src":null,"app":["542"],"cat":["542"],"srcPortList":null},"name":"2"}],"ceiling":"100%","queue-type":"fq-codel","is-default":false,"target":4,"codelQuantum":300,"queue-limit":800,"interval":5},
+      {"name":"3","priority":2,"bandwidth":"15%","burst":"204800","match":[{"ipset":{"dst":["48.0.0.0/24","81.81.1.0/24","172.25.3.228/30"],"src":["16.0.0.2/32"],"app":null,"cat":null,"srcPortList":null},"name":"1"}],"ceiling":"100%","queue-type":"fq-codel","is-default":false,"target":4,"codelQuantum":300,"queue-limit":800,"interval":60}
+    ]}]
+  };
+  $('#input').value = JSON.stringify(sample,null,2); $('#status').textContent='';
+});
+$('#btn-clear').addEventListener('click', ()=>{ $('#input').value=''; $('#status').textContent=''; });
+$('#btn-export-csv').addEventListener('click', ()=>{ if(!parsedRows.length) return; const header=COLUMNS.map(c=>c.label).join(','); const csv=[header,...parsedRows.map(r=>COLUMNS.map(c=>`"${(r[c.key]??'').toString().replace(/"/g,'""')}"`).join(','))].join('\n'); const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'})); a.download='qos.csv'; a.click(); });
+$('#btn-export-json').addEventListener('click', ()=>{ if(!lastData) return; const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([JSON.stringify(lastData,null,2)],{type:'application/json'})); a.download='qos.json'; a.click(); });
+$('#btn-print').addEventListener('click', ()=>window.print());
+$('#search').addEventListener('input', renderTable);
+</script>
+</body>
+</html>

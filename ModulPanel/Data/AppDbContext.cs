@@ -15,6 +15,9 @@ namespace ModulPanel.Data
         public DbSet<UserPermission> UserPermissions { get; set; }
         public DbSet<Log> Logs { get; set; }
 
+        public DbSet<Module> Modules { get; set; }
+
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);

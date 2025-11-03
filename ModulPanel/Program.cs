@@ -1,10 +1,13 @@
 ﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using ModulPanel.Data;
 using ModulPanel.Services;
 using System.Text;
+using Microsoft.AspNetCore.Http.Features; 
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -35,6 +38,14 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
+
+
+builder.Services.Configure<FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = 52428800; // 50 MB
+});
+
+
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
@@ -64,9 +75,12 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
+// servis kayıtları
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<LogService>();
+builder.Services.AddScoped<ModuleService>();
+builder.Services.AddSingleton<IWebHostEnvironment>(builder.Environment);
 
 var app = builder.Build();
 
@@ -77,9 +91,23 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+// 🔹 normal wwwroot dosyaları
+app.UseStaticFiles();
+
+// 🔹 modül dosyaları (proje kökünden)
+var projectRoot = Directory.GetParent(AppContext.BaseDirectory)!.FullName;
+var modulesPath = Path.Combine(projectRoot, "wwwroot", "Modules");
+Directory.CreateDirectory(modulesPath);
+
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(modulesPath),
+    RequestPath = "/Modules"
+});
+
 app.UseAuthentication();
 app.UseAuthorization();
-
 app.MapControllers();
 
 using (var scope = app.Services.CreateScope())
