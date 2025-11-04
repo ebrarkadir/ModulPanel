@@ -8,7 +8,7 @@ namespace ModulPanel.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize(Roles = nameof(UserRole.Admin))]
+    [Authorize]
     public class ModulesController : ControllerBase
     {
         private readonly ModuleService _moduleService;

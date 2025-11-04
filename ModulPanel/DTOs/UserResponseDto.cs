@@ -6,8 +6,11 @@ namespace ModulPanel.DTOs
     {
         public int Id { get; set; }
         public string Username { get; set; } = string.Empty;
-        public UserRole Role { get; set; } // ✅ Enum olacak, string değil
+        public UserRole Role { get; set; }
         public bool IsActive { get; set; }
         public DateTime CreatedAt { get; set; }
+
+        // 🔹 kullanıcıya ait modül anahtarları
+        public List<string> Permissions { get; set; } = new();
     }
 }

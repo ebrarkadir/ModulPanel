@@ -11,12 +11,11 @@ namespace ModulPanel.Data
         {
         }
 
+        // 🔹 Tablolar
         public DbSet<User> Users { get; set; }
         public DbSet<UserPermission> UserPermissions { get; set; }
         public DbSet<Log> Logs { get; set; }
-
         public DbSet<Module> Modules { get; set; }
-
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -30,17 +29,28 @@ namespace ModulPanel.Data
                     v => (UserRole)Enum.Parse(typeof(UserRole), v)
                 );
 
-            // 🔹 User <-> UserPermission (1 - N ilişkisi)
+            // 🔹 Username benzersiz olmalı
+            modelBuilder.Entity<User>()
+                .HasIndex(u => u.Username)
+                .IsUnique();
+
+            // 🔹 UserPermission -> User ilişkisi (1:N) ve cascade delete aktif
             modelBuilder.Entity<UserPermission>()
                 .HasOne(up => up.User)
                 .WithMany(u => u.Permissions)
                 .HasForeignKey(up => up.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
 
-            // 🔹 Username benzersiz olmalı
-            modelBuilder.Entity<User>()
-                .HasIndex(u => u.Username)
-                .IsUnique();
+            // 🔹 Module tablosu (opsiyonel, isActive kontrolü varsa ekle)
+            modelBuilder.Entity<Module>()
+                .Property(m => m.IsActive)
+                .HasDefaultValue(true);
+
+            modelBuilder.Entity<Log>()
+                .Property(l => l.CreatedAt)
+                .ValueGeneratedOnAdd(); // 🔹 EF otomatik tarih basacak, DB default yok
+
+
         }
     }
 }

@@ -27,7 +27,11 @@ namespace ModulPanel.Services
 
         public async Task<AuthResponseDto?> LoginAsync(LoginDto dto)
         {
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.Username == dto.Username);
+            // 🔹 Kullanıcıyı izinlerle birlikte getir
+            var user = await _context.Users
+                .Include(u => u.Permissions)
+                .FirstOrDefaultAsync(u => u.Username == dto.Username);
+
             if (user == null)
             {
                 await _logService.AddAsync(null, "LOGIN_FAIL", $"Kullanıcı bulunamadı: {dto.Username}", "Auth");
@@ -50,14 +54,22 @@ namespace ModulPanel.Services
 
             await _logService.AddAsync(user.Id, "LOGIN_SUCCESS", $"{user.Username} sisteme giriş yaptı.", "Auth");
 
+            // 🔹 izinleri hazırla
+            var perms = user.Permissions?.Select(p => p.PermissionKey).ToList() ?? new List<string>();
+            if (user.Role == UserRole.Admin && !perms.Contains("all"))
+                perms.Add("all");
+
+            // 🔹 login yanıtına ekle
             return new AuthResponseDto
             {
                 AccessToken = accessToken,
                 RefreshToken = refreshToken,
                 Username = user.Username,
-                Role = user.Role
+                Role = user.Role.ToString(),
+                Permissions = perms // ✅ EKLENDİ
             };
         }
+
 
         private string HashPassword(string password)
         {
@@ -74,9 +86,11 @@ namespace ModulPanel.Services
             var claims = new[]
             {
                 new Claim(JwtRegisteredClaimNames.Sub, user.Username),
+                new Claim(ClaimTypes.Name, user.Username),
                 new Claim("uid", user.Id.ToString()),
                 new Claim(ClaimTypes.Role, user.Role.ToString()),
-                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+
             };
 
             var token = new JwtSecurityToken(
@@ -141,7 +155,7 @@ namespace ModulPanel.Services
                 AccessToken = newAccessToken,
                 RefreshToken = newRefreshToken,
                 Username = user.Username,
-                Role = user.Role
+                Role = user.Role.ToString()
             };
         }
     }

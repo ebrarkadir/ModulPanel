@@ -19,9 +19,11 @@ namespace ModulPanel.Services
             _logService = logService;
         }
 
+        // 🔹 Tüm kullanıcıları getir (izinlerle birlikte)
         public async Task<List<UserResponseDto>> GetAllAsync()
         {
             var users = await _context.Users
+                .Include(u => u.Permissions)
                 .AsNoTracking()
                 .Select(u => new UserResponseDto
                 {
@@ -29,7 +31,10 @@ namespace ModulPanel.Services
                     Username = u.Username,
                     Role = u.Role,
                     IsActive = u.IsActive,
-                    CreatedAt = u.CreatedAt
+                    CreatedAt = u.CreatedAt,
+                    Permissions = u.Permissions != null
+                        ? u.Permissions.Select(p => p.PermissionKey).ToList()
+                        : new List<string>()
                 })
                 .ToListAsync();
 
@@ -37,6 +42,7 @@ namespace ModulPanel.Services
             return users;
         }
 
+        // 🔹 Yeni kullanıcı oluştur
         public async Task<UserResponseDto?> CreateAsync(UserCreateDto dto)
         {
             if (await _context.Users.AnyAsync(u => u.Username == dto.Username))
@@ -44,17 +50,34 @@ namespace ModulPanel.Services
 
             var user = new User
             {
-                Username = dto.Username,
+                Username = dto.Username.Trim(),
                 PasswordHash = HashPassword(dto.Password),
                 Role = dto.Role,
                 CreatedAt = DateTime.UtcNow,
-                IsActive = true
+                IsActive = true,
             };
+
+            // 🔹 Yetkiler
+            if (dto.Role == UserRole.Admin)
+            {
+                user.Permissions.Add(new UserPermission { PermissionKey = "all", User = user });
+            }
+            else
+            {
+                foreach (var perm in dto.Permissions.Distinct())
+                {
+                    user.Permissions.Add(new UserPermission
+                    {
+                        PermissionKey = perm.ToLower(),
+                        User = user
+                    });
+                }
+            }
 
             _context.Users.Add(user);
             await _context.SaveChangesAsync();
 
-            await _logService.AddAsync(null, "CREATE_USER", $"Yeni kullanıcı oluşturuldu: {user.Username} (Rol: {user.Role})", "User");
+            await _logService.AddAsync(null, "CREATE_USER", $"Yeni kullanıcı oluşturuldu: {user.Username}", "User");
 
             return new UserResponseDto
             {
@@ -62,13 +85,18 @@ namespace ModulPanel.Services
                 Username = user.Username,
                 Role = user.Role,
                 CreatedAt = user.CreatedAt,
-                IsActive = user.IsActive
+                IsActive = user.IsActive,
+                Permissions = user.Permissions.Select(p => p.PermissionKey).ToList()
             };
         }
 
+        // 🔹 Kullanıcı güncelle
         public async Task<bool> UpdateAsync(int id, UserUpdateDto dto)
         {
-            var user = await _context.Users.FindAsync(id);
+            var user = await _context.Users
+                .Include(u => u.Permissions)
+                .FirstOrDefaultAsync(u => u.Id == id);
+
             if (user == null)
             {
                 await _logService.AddAsync(null, "UPDATE_USER_FAIL", $"Kullanıcı bulunamadı (ID: {id})", "User");
@@ -76,21 +104,41 @@ namespace ModulPanel.Services
             }
 
             if (!string.IsNullOrWhiteSpace(dto.Username))
-                user.Username = dto.Username;
+                user.Username = dto.Username.Trim();
 
             if (!string.IsNullOrWhiteSpace(dto.Password))
                 user.PasswordHash = HashPassword(dto.Password);
 
             user.Role = dto.Role;
-            await _context.SaveChangesAsync();
 
-            await _logService.AddAsync(null, "UPDATE_USER", $"Kullanıcı güncellendi (ID: {id}, Yeni Username: {user.Username})", "User");
+            // 🔹 mevcut izinleri temizle ve yenileri ekle
+            user.Permissions.Clear();
+
+            if (dto.Role == UserRole.Admin)
+            {
+                user.Permissions.Add(new UserPermission { PermissionKey = "all", User = user });
+            }
+            else
+            {
+                foreach (var perm in dto.Permissions.Distinct())
+                {
+                    user.Permissions.Add(new UserPermission
+                    {
+                        PermissionKey = perm.ToLower(),
+                        User = user
+                    });
+                }
+            }
+
+            await _context.SaveChangesAsync();
+            await _logService.AddAsync(user.Id, "UPDATE_USER", $"Kullanıcı güncellendi: {user.Username}", "User");
             return true;
         }
 
+        // 🔹 Kullanıcı sil
         public async Task<bool> DeleteAsync(int id)
         {
-            var user = await _context.Users.FindAsync(id);
+            var user = await _context.Users.Include(u => u.Permissions).FirstOrDefaultAsync(u => u.Id == id);
             if (user == null)
             {
                 await _logService.AddAsync(null, "DELETE_USER_FAIL", $"Kullanıcı bulunamadı (ID: {id})", "User");
@@ -100,10 +148,11 @@ namespace ModulPanel.Services
             _context.Users.Remove(user);
             await _context.SaveChangesAsync();
 
-            await _logService.AddAsync(null, "DELETE_USER", $"Kullanıcı silindi (ID: {id}, Username: {user.Username})", "User");
+            await _logService.AddAsync(user.Id, "DELETE_USER", $"Kullanıcı silindi: {user.Username}", "User");
             return true;
         }
 
+        // 🔹 Şifre hash fonksiyonu
         private string HashPassword(string password)
         {
             using var sha = SHA256.Create();

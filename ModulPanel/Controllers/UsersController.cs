@@ -8,7 +8,7 @@ namespace ModulPanel.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize(Roles = nameof(UserRole.Admin))] // sadece Admin erişebilir
+    [Authorize] // sadece Admin erişebilir
     public class UsersController : ControllerBase
     {
         private readonly UserService _userService;
