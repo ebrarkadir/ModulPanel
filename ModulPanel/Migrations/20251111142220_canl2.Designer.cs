@@ -12,8 +12,8 @@ using ModulPanel.Data;
 namespace ModulPanel.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20251104140401_15")]
-    partial class _15
+    [Migration("20251111142220_canl2")]
+    partial class canl2
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)

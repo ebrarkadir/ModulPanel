@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace ModulPanel.Migrations
 {
     /// <inheritdoc />
-    public partial class _15 : Migration
+    public partial class canl2 : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)

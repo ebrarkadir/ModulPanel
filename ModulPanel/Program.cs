@@ -10,25 +10,16 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 🔹 CORS ekle
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("AllowFrontend",
-        policy =>
-        {
-            policy.WithOrigins("http://localhost:3000") // React portu
-                  .AllowAnyHeader()
-                  .AllowAnyMethod()
-                  .AllowCredentials();
-        });
-});
-
-// 🔹 Veritabanı bağlantısı
+// ======================================================
+// 🔹 MySQL bağlantısı
+// ======================================================
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));
 
+// ======================================================
 // 🔹 JWT yapılandırması
+// ======================================================
 var jwtSettings = builder.Configuration.GetSection("Jwt");
 var key = Encoding.UTF8.GetBytes(jwtSettings["Key"]!);
 
@@ -51,34 +42,56 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
-// 🔹 Form upload limit
-builder.Services.Configure<FormOptions>(options =>
-{
-    options.MultipartBodyLengthLimit = 52428800; // 50 MB
-});
+// ======================================================
+// 🔹 Upload limiti
+// ======================================================
+builder.Services.Configure<FormOptions>(o => o.MultipartBodyLengthLimit = 50 * 1024 * 1024);
 
+// ======================================================
 // 🔹 Servis kayıtları
+// ======================================================
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<LogService>();
 builder.Services.AddScoped<ModuleService>();
-builder.Services.AddSingleton<IWebHostEnvironment>(builder.Environment);
 
-// 🔹 Controller ve Swagger
+// ======================================================
+// 🔹 CORS (isteğe bağlı – geliştirme ortamında aktif)
+// ======================================================
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontend", policy =>
+    {
+        policy
+            .AllowAnyOrigin()
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+    });
+});
+
+// ======================================================
+// 🔹 Swagger
+// ======================================================
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen(options =>
+builder.Services.AddSwaggerGen(c =>
 {
-    options.SwaggerDoc("v1", new OpenApiInfo { Title = "ModulPanel API", Version = "v1" });
-    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    c.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "ModulPanel API",
+        Version = "v1",
+        Description = "Ulak ModulPanel Yönetim API Dokümantasyonu"
+    });
+
+    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         In = ParameterLocation.Header,
-        Description = "Lütfen 'Bearer <token>' formatında JWT token girin.",
+        Description = "Bearer <token>",
         Name = "Authorization",
-        Type = SecuritySchemeType.ApiKey,
-        Scheme = "Bearer"
+        Type = SecuritySchemeType.ApiKey
     });
-    options.AddSecurityRequirement(new OpenApiSecurityRequirement
+
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement
     {
         {
             new OpenApiSecurityScheme
@@ -89,47 +102,35 @@ builder.Services.AddSwaggerGen(options =>
                     Id = "Bearer"
                 }
             },
-            Array.Empty<string>()
+            new string[] {}
         }
     });
 });
 
-// 🔹 App oluştur
 var app = builder.Build();
 
-// 🔹 Swagger
-if (app.Environment.IsDevelopment())
+// ======================================================
+// 🔹 Middleware
+// ======================================================
+app.UseSwagger();
+app.UseSwaggerUI(c =>
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
-
-// 🔹 CORS ve HTTPS yönlendirme
-app.UseCors("AllowFrontend");
-app.UseHttpsRedirection();
-
-// 🔹 Statik dosyalar
-app.UseStaticFiles();
-
-// 🔹 Modül klasörlerini özel olarak ekle
-var projectRoot = Directory.GetParent(AppContext.BaseDirectory)!.FullName;
-var modulesPath = Path.Combine(projectRoot, "wwwroot", "Modules");
-Directory.CreateDirectory(modulesPath);
-
-app.UseStaticFiles(new StaticFileOptions
-{
-    FileProvider = new PhysicalFileProvider(modulesPath),
-    RequestPath = "/Modules"
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "ModulPanel API v1");
+    c.RoutePrefix = "swagger";
 });
 
-// 🔹 JWT kimlik doğrulama
+app.UseCors("AllowFrontend");
+app.UseHttpsRedirection();
+app.UseStaticFiles();
+
 app.UseAuthentication();
 app.UseAuthorization();
 
-// 🔹 Controller route'ları
 app.MapControllers();
 
-// 🔹 Veritabanı ve admin seed
+// ======================================================
+// 🔹 DB Init
+// ======================================================
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -137,5 +138,7 @@ using (var scope = app.Services.CreateScope())
     DataSeeder.SeedAdmin(db);
 }
 
-// 🔹 Uygulamayı başlat
+// ======================================================
+// 🔹 Çalıştır
+// ======================================================
 app.Run();
