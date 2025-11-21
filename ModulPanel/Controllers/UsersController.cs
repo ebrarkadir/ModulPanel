@@ -20,9 +20,12 @@ namespace ModulPanel.Controllers
 
         // 🔹 GET: api/users
         [HttpGet]
-        public async Task<IActionResult> GetAll()
+        public async Task<IActionResult> GetAll([FromQuery] bool log = true)
         {
-            var users = await _userService.GetAllAsync();
+            var userId = User.Claims.FirstOrDefault(c => c.Type == "uid")?.Value;
+            int? uid = int.TryParse(userId, out var parsed) ? parsed : null;
+
+            var users = await _userService.GetAllAsync(uid, log);
             return Ok(users);
         }
 

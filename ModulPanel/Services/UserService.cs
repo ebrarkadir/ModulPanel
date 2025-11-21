@@ -19,8 +19,8 @@ namespace ModulPanel.Services
             _logService = logService;
         }
 
-        // 🔹 Tüm kullanıcıları getir (izinlerle birlikte)
-        public async Task<List<UserResponseDto>> GetAllAsync()
+        // 🔹 Tüm kullanıcıları getir (log opsiyonel)
+        public async Task<List<UserResponseDto>> GetAllAsync(int? requesterId, bool logAction = true)
         {
             var users = await _context.Users
                 .Include(u => u.Permissions)
@@ -38,7 +38,9 @@ namespace ModulPanel.Services
                 })
                 .ToListAsync();
 
-            await _logService.AddAsync(null, "GET_USERS", "Kullanıcı listesi görüntülendi.", "User");
+            if (logAction)
+                await _logService.AddAsync(requesterId, "GET_USERS", "Kullanıcı listesi görüntülendi.", "User");
+
             return users;
         }
 
@@ -57,7 +59,6 @@ namespace ModulPanel.Services
                 IsActive = true,
             };
 
-            // 🔹 Yetkiler
             if (dto.Role == UserRole.Admin)
             {
                 user.Permissions.Add(new UserPermission { PermissionKey = "all", User = user });
@@ -111,7 +112,6 @@ namespace ModulPanel.Services
 
             user.Role = dto.Role;
 
-            // 🔹 mevcut izinleri temizle ve yenileri ekle
             user.Permissions.Clear();
 
             if (dto.Role == UserRole.Admin)
@@ -132,6 +132,7 @@ namespace ModulPanel.Services
 
             await _context.SaveChangesAsync();
             await _logService.AddAsync(user.Id, "UPDATE_USER", $"Kullanıcı güncellendi: {user.Username}", "User");
+
             return true;
         }
 
